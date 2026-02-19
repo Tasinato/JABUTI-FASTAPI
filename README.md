@@ -59,29 +59,37 @@ A arquitetura segue o padrão Controller → SQLAlchemy ORM → Database, com ca
 ```mermaid
 sequenceDiagram
   autonumber
-  participant C as Client
-  participant CTRL as Controller
-  participant SVC as Service
-  participant M as Repository
-  participant DB as PostgreSQL
-  participant R as Redis
+  participant Client
+  participant Controller
+  participant Redis
+  participant ORM
+  participant DB
 
-  C->>CTRL: HTTP Request
-  CTRL->>SVC: Encaminha regra de negócio
-  SVC->>R: Verifica cache
+  Client->>Controller: HTTP Request
 
-  alt Cache HIT
-    R-->>SVC: Retorna dados
-  else Cache MISS
-    SVC->>M: Query/Command
-    M->>DB: SQL (async)
-    DB-->>M: Resultado
-    M-->>SVC: Entidade
-    SVC->>R: Atualiza cache
+  alt READ operation
+      Controller->>Redis: GET cache_key
+
+      alt Cache HIT
+          Redis-->>Controller: cached data
+      else Cache MISS
+          Controller->>ORM: Query
+          ORM->>DB: SQL read
+          DB-->>ORM: Result
+          ORM-->>Controller: Entities
+          Controller->>Redis: SET cache (TTL)
+      end
+
+  else WRITE operation
+      Controller->>ORM: Persist change
+      ORM->>DB: SQL write
+      DB-->>ORM: OK
+      Controller->>Redis: invalidate list cache
+      Controller->>Redis: update/delete id cache
   end
 
-  SVC-->>CTRL: DTO Response
-  CTRL-->>C: HTTP Response
+  Controller-->>Client: Response
+
 ```
 
 ---
