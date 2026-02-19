@@ -1,0 +1,22 @@
+[project]
+name = "jabuti-fastapi"
+version = "0.1.0"
+description = "CRUD com FastAPI, SQLAlchemy e Redis"
+authors = [
+    {name = "Rafael Tasinato", email = "rafael.tasinato@gmail.com"}
+]
+requires-python = ">=3.12,<4.0"
+dependencies = [
+    "fastapi (>=0.129.0,<0.130.0)",
+    "uvicorn (>=0.41.0,<0.42.0)",
+    "sqlalchemy (>=2.0.46,<3.0.0)",
+    "asyncpg (>=0.31.0,<0.32.0)",
+    "redis (>=7.2.0,<8.0.0)",
+    "pydantic-settings (>=2.13.0,<3.0.0)",
+    "email-validator (>=2.3.0,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

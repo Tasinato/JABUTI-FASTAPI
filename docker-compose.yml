@@ -1,0 +1,53 @@
+services:
+  db:
+    image: postgres:16
+    container_name: jabuti_db
+    environment:
+      POSTGRES_USER: jabuti
+      POSTGRES_PASSWORD: jabuti123
+      POSTGRES_DB: jabutidb
+    # se você NÃO precisa acessar o Postgres pelo seu Windows, pode comentar ports
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jabuti -d jabutidb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  cache:
+    image: redis:7-alpine
+    container_name: jabuti_cache
+    # se você NÃO precisa acessar o Redis pelo seu Windows, pode comentar ports
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build: .
+    env_file:
+      - .env
+    container_name: jabuti_app
+    ports:
+      - "8015:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    # volumes:
+    # - .:/app
+    # opcional: força o comando aqui (se preferir deixar só no Dockerfile, remova)
+    # command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
