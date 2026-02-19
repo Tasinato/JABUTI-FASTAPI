@@ -7,8 +7,6 @@ Projeto organizado com arquitetura modular e preparado para escalar em ambiente 
 
 ## 📐 Estrutura do Projeto
 
-
-
 ```text
 JABUTI-FASTAPI/
 │
@@ -18,7 +16,7 @@ JABUTI-FASTAPI/
 ├── src/
 │   ├── main.py                   # Entry point da aplicação
 │   │
-│   ├── controllers/              # Camada de rotas (controllers)
+│   ├── controllers/              # Camada de rotas
 │   │   └── user_controller.py
 │   │
 │   ├── core/                     # Configurações e infraestrutura
@@ -27,7 +25,7 @@ JABUTI-FASTAPI/
 │   │   ├── middlewares.py
 │   │   └── request_context.py
 │   │
-│   ├── models/                   # Modelos ORM e conexão DB
+│   ├── models/                   # Modelos ORM e conexão com banco
 │   │   ├── database.py
 │   │   └── user_model.py
 │   │
@@ -44,7 +42,6 @@ JABUTI-FASTAPI/
 └── .env.example
 ```
 
-
 ---
 
 ## 🚀 Tecnologias Utilizadas
@@ -54,34 +51,13 @@ JABUTI-FASTAPI/
 - Poetry
 - Docker & Docker Compose
 - PostgreSQL
+- Redis
 - Alembic
 - Uvicorn
 
 ---
 
-## ⚙️ Execução Local com Poetry
-
-Instalar dependências:
-
-```bash
-poetry install
-```
-
-Ativar ambiente virtual:
-
-```bash
-poetry shell
-```
-
-Executar aplicação:
-
-```bash
-uvicorn jabuti.main:app --reload
-```
-
----
-
-## 🐳 Execução com Docker
+## 🐳 Execução com Docker (Recomendado)
 
 Build da aplicação:
 
@@ -101,11 +77,13 @@ Parar containers:
 docker compose down
 ```
 
----
+A aplicação ficará disponível em:
 
-## 📄 Documentação Automática
+```
+http://localhost:8015
+```
 
-Após subir a aplicação:
+Documentação automática:
 
 - Swagger UI:  
   http://localhost:8015/docs
@@ -115,13 +93,39 @@ Após subir a aplicação:
 
 ---
 
-## 🔒 Variáveis de Ambiente
+## ⚙️ Execução Local com Poetry (Opcional)
 
-Criar um arquivo `.env` baseado no modelo:
+Instalar dependências:
+
+```bash
+poetry install
+```
+
+Executar aplicação:
+
+```bash
+uvicorn src.main:app --reload --port 8015
+```
+
+---
+
+## 🔐 Configuração de Ambiente (Docker)
+
+O projeto utiliza Docker para gerenciamento do ambiente.
+
+Crie um arquivo `.env` na raiz com base no modelo:
 
 ```bash
 cp .env.example .env
 ```
+
+Após isso, inicie os serviços:
+
+```bash
+docker compose up --build
+```
+
+O Docker será responsável por injetar as variáveis no container.
 
 ⚠️ O arquivo `.env` não deve ser versionado.
 
@@ -131,11 +135,12 @@ cp .env.example .env
 
 O projeto segue princípios de:
 
-- Separação por camadas (API → Service → Model)
+- Separação por camadas (Controller → Service → Model)
 - Organização modular
 - Containerização para portabilidade
 - Preparação para escalabilidade
 - Versionamento de banco com Alembic
+- Integração com Redis para cache
 
 ---
 
@@ -146,6 +151,7 @@ Estrutura base para backend profissional com foco em:
 - Organização enterprise-ready
 - Boas práticas de desenvolvimento
 - Base sólida para evolução do produto
+- Arquitetura preparada para crescimento
 
 ---
 
