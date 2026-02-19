@@ -1,7 +1,88 @@
 # 🐢 JABUTI – FastAPI Backend
 
-Backend estruturado com **FastAPI**, gerenciado com **Poetry** e containerizado com **Docker**.  
-Projeto organizado com arquitetura modular e preparado para escalar em ambiente profissional.
+Backend desenvolvido com **FastAPI**, gerenciado com **Poetry** e containerizado com **Docker Compose**.  
+A aplicação segue arquitetura modular com separação clara de responsabilidades, preparada para ambientes escaláveis e produção.
+
+---
+
+## 🏗️ Arquitetura Geral (Host × Docker)
+
+A aplicação é executada via Docker Compose, com separação entre:
+
+- Cliente externo
+- Host (localhost)
+- Ambiente containerizado
+- Rede interna Docker
+
+### 🔌 Mapeamento de Portas
+
+- Host → `8015`
+- FastAPI (container) → `8000`
+- PostgreSQL → `5432`
+- Redis → `6379`
+
+```mermaid
+flowchart LR
+
+    %% Cliente
+    Client[Cliente\nBrowser / Postman]
+
+    %% Host
+    subgraph Host[Host - localhost]
+        Port[Port 8015]
+    end
+
+    %% Docker Environment
+    subgraph Docker[Docker Environment]
+        
+        subgraph Network[Docker Internal Network]
+            API[FastAPI Container\nUvicorn :8000]
+            DB[(PostgreSQL\n:5432)]
+            Redis[(Redis\n:6379)]
+        end
+
+    end
+
+    %% Fluxo
+    Client -->|HTTP :8015| Port
+    Port -->|8015:8000| API
+    API --> DB
+    API --> Redis
+```
+
+---
+
+## 🔄 Fluxo Interno da Aplicação
+
+A arquitetura segue o padrão Controller → Service → Repository/Model, com camada opcional de cache.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant C as Client
+  participant CTRL as Controller
+  participant SVC as Service
+  participant M as Repository
+  participant DB as PostgreSQL
+  participant R as Redis
+
+  C->>CTRL: HTTP Request
+  CTRL->>SVC: Encaminha regra de negócio
+  SVC->>R: Verifica cache
+
+  alt Cache HIT
+    R-->>SVC: Retorna dados
+  else Cache MISS
+    SVC->>M: Query/Command
+    M->>DB: SQL (async)
+    DB-->>M: Resultado
+    M-->>SVC: Entidade
+    SVC->>R: Atualiza cache
+  end
+
+  SVC-->>CTRL: DTO Response
+  CTRL-->>C: HTTP Response
+```
 
 ---
 
@@ -44,30 +125,33 @@ JABUTI-FASTAPI/
 
 ---
 
-## 🚀 Tecnologias Utilizadas
+## 🚀 Stack Tecnológica
 
+### Backend
 - Python 3.14
 - FastAPI
-- Poetry
-- Docker & Docker Compose
-- PostgreSQL
-- Redis
-- Alembic
 - Uvicorn
 
+### Persistência
+- PostgreSQL
+- SQLAlchemy (async)
+- Alembic
+
+### Cache
+- Redis
+
+### Infraestrutura
+- Docker
+- Docker Compose
+
+### Gerenciamento de Dependências
+- Poetry
 ---
 
 ## 🐳 Execução com Docker (Recomendado)
 
-Build da aplicação:
-
 ```bash
 docker compose build
-```
-
-Subir containers:
-
-```bash
 docker compose up
 ```
 
@@ -77,7 +161,7 @@ Parar containers:
 docker compose down
 ```
 
-A aplicação ficará disponível em:
+Aplicação disponível em:
 
 ```
 http://localhost:8015
@@ -85,72 +169,55 @@ http://localhost:8015
 
 Documentação automática:
 
-- Swagger UI:  
-  http://localhost:8015/docs
-
-- ReDoc:  
-  http://localhost:8015/redoc
+- Swagger UI → http://localhost:8015/docs  
+- ReDoc → http://localhost:8015/redoc  
 
 ---
 
 ## ⚙️ Execução Local com Poetry (Opcional)
 
-Instalar dependências:
-
 ```bash
 poetry install
-```
-
-Executar aplicação:
-
-```bash
 uvicorn src.main:app --reload --port 8015
 ```
 
 ---
 
-## 🔐 Configuração de Ambiente (Docker)
+## 🔐 Configuração de Ambiente
 
-O projeto utiliza Docker para gerenciamento do ambiente.
-
-Crie um arquivo `.env` na raiz com base no modelo:
+Crie um arquivo `.env` baseado no modelo:
 
 ```bash
 cp .env.example .env
 ```
 
-Após isso, inicie os serviços:
+Depois:
 
 ```bash
 docker compose up --build
 ```
 
-O Docker será responsável por injetar as variáveis no container.
-
 ⚠️ O arquivo `.env` não deve ser versionado.
 
 ---
 
-## 🏗️ Padrão Arquitetural
+## 🏛️ Padrão Arquitetural
 
-O projeto segue princípios de:
-
-- Separação por camadas (Controller → Service → Model)
+- Separação por camadas (Controller → Service → Repository)
 - Organização modular
-- Containerização para portabilidade
-- Preparação para escalabilidade
+- Containerização
 - Versionamento de banco com Alembic
 - Integração com Redis para cache
+- Estrutura preparada para evolução e escalabilidade
 
 ---
 
 ## 📦 Objetivo
 
-Estrutura base para backend profissional com foco em:
+Base profissional para backend com:
 
 - Organização enterprise-ready
 - Boas práticas de desenvolvimento
-- Base sólida para evolução do produto
 - Arquitetura preparada para crescimento
 
 ---
