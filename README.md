@@ -348,6 +348,14 @@ Base profissional para backend com:
 
 ---
 
+## 📚 Documentação Técnica
+
+A documentação completa do sistema está disponível em:
+
+👉 [docs/README.md](docs/README.md)
+
+---
+
 ## 👤 Autor
 
 **Rafael Tasinato**  
