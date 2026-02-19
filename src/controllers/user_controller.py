@@ -8,8 +8,7 @@ from uuid import UUID
 from src.schemas.user_schema import UserCreate, UserUpdate, UserResponse, UserListResponse 
 from src.models.database import get_db
 from src.models.user_model import User
-from src.cache.redis_client import cache_get, cache_set, cache_delete, cache_delete_prefix
-
+from src.cache.redis_client import cache_get, cache_set, cache_delete, cache_delete_prefix,make_cache_key
 
 router = APIRouter(prefix="/usuarios", tags=["Usuários"])
 
@@ -24,7 +23,7 @@ async def list_users(
     sort: str = Query("nome"),
     db: AsyncSession = Depends(get_db),
 ):
-    cache_key = f"usuarios:list:{limit}:{offset}:{sort}"
+    cache_key = make_cache_key("usuarios", "list", limit, offset, sort)
     cached = await cache_get(cache_key)
     if cached is not None:
         return cached
@@ -75,7 +74,7 @@ async def list_users(
 
 @router.get("/{id}", response_model=UserResponse)
 async def get_user(id: UUID, db: AsyncSession = Depends(get_db)):
-    cache_key = f"usuarios:id:{id}"
+    cache_key = make_cache_key("usuarios", "id", id)
     cached = await cache_get(cache_key)
     if cached is not None:
         return cached
@@ -113,9 +112,15 @@ async def create_user(
             detail="Email já cadastrado"
         )
     
-    await cache_delete_prefix("usuarios:list:")
+    await cache_delete_prefix("usuarios:list")
+    # -> "usuarios:list:10:0:nome"
+    
+    # grava usuário recém criado no cache (write-through)
+    user_data = UserResponse.model_validate(user).model_dump(mode="json")
+    cache_key = make_cache_key("usuarios", "id", user.id)
+    await cache_set(cache_key, user_data, ttl=CACHE_TTL)
 
-    return user
+    return user_data
 
 
 @router.put("/{id}", response_model=UserResponse)
@@ -158,10 +163,16 @@ async def update_user(
             detail="Email já cadastrado"
         )
 
-    await cache_delete_prefix("usuarios:list:")
-    await cache_delete(f"usuarios:id:{id}")
+    
+    await cache_delete_prefix("usuarios:list")
 
-    return user
+    # write-through: atualiza o cache do usuário com o dado já persistido
+    user_data = UserResponse.model_validate(user).model_dump(mode="json")
+    cache_key = make_cache_key("usuarios", "id", id)
+    await cache_set(cache_key, user_data, ttl=CACHE_TTL)
+
+    return user_data
+
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -173,7 +184,7 @@ async def delete_user(id: UUID, db: AsyncSession = Depends(get_db)):
     await db.delete(user)
     await db.commit()
 
-    await cache_delete_prefix("usuarios:list:")
-    await cache_delete(f"usuarios:id:{id}")
+    await cache_delete_prefix("usuarios:list")
+    await cache_delete(make_cache_key("usuarios", "id", id))
     
     return None
