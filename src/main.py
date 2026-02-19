@@ -5,9 +5,10 @@ from contextlib import asynccontextmanager
 from src.controllers.user_controller import router
 from src.models.database import Base, engine
 from src.core.settings import settings
-from src.cache.redis_client import init_cache
+from src.cache.redis_client import init_cache, redis
 from src.core.logging_config import setup_logging
 from src.core.middlewares import RequestIdMiddleware
+
 
 logger = logging.getLogger("app")
 
@@ -29,6 +30,9 @@ async def lifespan(app: FastAPI):
         logger.info("db_schema_ready")
 
     yield
+
+    if redis is not None:
+        await redis.close()
 
     await engine.dispose()
     logger.info("app_stopped")
