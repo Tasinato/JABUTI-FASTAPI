@@ -1,0 +1,15 @@
+# ADR 001 — Uso de Redis como camada de cache
+
+## Status
+Aceito
+
+## Contexto
+Sistema possui leituras frequentes.
+
+## Decisão
+Utilizar Redis com estratégia Cache-Aside.
+
+## Consequências
++ Redução de latência
++ Redução de carga no banco
+- Complexidade adicional
