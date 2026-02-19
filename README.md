@@ -92,35 +92,37 @@ sequenceDiagram
 JABUTI-FASTAPI/
 │
 ├── migrations/
-│   └── versions/                 # Arquivos de migração (Alembic)
+│   └── versions/
 │
 ├── src/
-│   ├── main.py                   # Entry point da aplicação
+│   ├── main.py
 │   │
-│   ├── controllers/              # Camada de rotas
+│   ├── controllers/
 │   │   └── user_controller.py
 │   │
-│   ├── core/                     # Configurações e infraestrutura
+│   ├── core/
 │   │   ├── settings.py
 │   │   ├── logging_config.py
 │   │   ├── middlewares.py
 │   │   └── request_context.py
 │   │
-│   ├── models/                   # Modelos ORM e conexão com banco
+│   ├── models/
 │   │   ├── database.py
 │   │   └── user_model.py
 │   │
-│   ├── schemas/                  # Schemas Pydantic
+│   ├── schemas/
 │   │   └── user_schema.py
 │   │
-│   └── cache/                    # Integração com Redis
+│   └── cache/
 │       └── redis_client.py
 │
 ├── Dockerfile
 ├── docker-compose.yml
 ├── pyproject.toml
 ├── poetry.lock
-└── .env.example
+├── .env.example
+└── .gitignore
+
 ```
 
 ---
