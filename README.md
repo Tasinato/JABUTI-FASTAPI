@@ -200,6 +200,122 @@ docker compose up --build
 ⚠️ O arquivo `.env` não deve ser versionado.
 
 ---
+## 🧪 Como Testar o Cache (Redis)
+
+O projeto utiliza estratégia **Cache-Aside** com Redis.
+
+A chave utilizada para listagem segue o padrão:
+
+```
+usuarios:list:{limit}:{offset}:{sort}
+```
+
+Exemplo real:
+
+```
+usuarios:list:10:0:nome
+```
+
+### 🔹 1️⃣ Limpar o Redis
+
+```bash
+docker compose exec cache redis-cli flushall
+```
+
+---
+
+### 🔹 2️⃣ Monitorar comandos do Redis
+
+Abra um terminal separado:
+
+```bash
+docker compose exec cache redis-cli monitor
+```
+
+---
+
+### 🔹 3️⃣ Fazer duas chamadas iguais na API
+
+```bash
+curl "http://localhost:8015/usuarios/?limit=10&offset=0&sort=nome"
+curl "http://localhost:8015/usuarios/?limit=10&offset=0&sort=nome"
+```
+
+---
+
+### 🔎 Resultado esperado
+
+#### Primeira chamada (Cache MISS)
+
+```
+GET usuarios:list:10:0:nome
+SET usuarios:list:10:0:nome ... EX 60
+```
+
+Isso indica que:
+
+- Não havia cache
+- Dados foram buscados no banco
+- Resultado foi armazenado no Redis com TTL de 60 segundos
+
+---
+
+#### Segunda chamada (Cache HIT)
+
+```
+GET usuarios:list:10:0:nome
+```
+
+Observe que **não aparece SET novamente**.
+
+Isso significa que a resposta foi servida diretamente do cache.
+
+---
+
+### 🔹 4️⃣ Verificar chave manualmente
+
+Listar chaves:
+
+```bash
+docker compose exec cache redis-cli keys "usuarios:list:*"
+```
+
+Verificar TTL:
+
+```bash
+docker compose exec cache redis-cli ttl "usuarios:list:10:0:nome"
+```
+
+Obter valor armazenado:
+
+```bash
+docker compose exec cache redis-cli get "usuarios:list:10:0:nome"
+```
+
+---
+
+## 🔁 Invalidação de Cache
+
+Após operações de escrita (POST, PUT, DELETE), o cache da listagem é invalidado automaticamente:
+
+```python
+await cache_delete_prefix("usuarios:list:")
+```
+
+Isso garante consistência entre banco e cache.
+
+---
+
+## ⏱ TTL Configurado
+
+O tempo de expiração padrão está definido como:
+
+```python
+CACHE_TTL = 60  # segundos
+```
+
+Após esse período, o cache expira automaticamente e a próxima requisição será um novo MISS.
+---
 
 ## 🏛️ Padrão Arquitetural
 
