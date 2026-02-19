@@ -54,7 +54,7 @@ flowchart LR
 
 ## 🔄 Fluxo Interno da Aplicação
 
-A arquitetura segue o padrão Controller → Service → Repository/Model, com camada opcional de cache.
+A arquitetura segue o padrão Controller → SQLAlchemy ORM → Database, com camada opcional de cache.
 
 ```mermaid
 sequenceDiagram
@@ -301,7 +301,7 @@ docker compose exec cache redis-cli get "usuarios:list:10:0:nome"
 Após operações de escrita (POST, PUT, DELETE), o cache da listagem é invalidado automaticamente:
 
 ```python
-await cache_delete_prefix("usuarios:list:")
+await cache_delete_prefix("usuarios:list")
 ```
 
 Isso garante consistência entre banco e cache.
