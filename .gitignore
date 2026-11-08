@@ -61,8 +61,10 @@ docker-compose.override.yml
 Thumbs.db
 
 
-# Arquivos antigos / backups locais (não devem ir para o repositório)
+# Arquivos antigos / backups locais (nÃ£o devem ir para o repositÃ³rio)
 *.old
 old*
 .ruff_cache/
 .test-*/
+
+integration-results.json
