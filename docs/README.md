@@ -16,7 +16,7 @@ Este diretório contém toda a documentação técnica detalhada do sistema, org
   → [Data Model](./architecture/data-model.md)
 
 - Decisões arquiteturais (ADR)  
-  → [Architecture Decisions](./architecture/decisions/)
+  → [Architecture Decisions](./architecture/decisions/001-use-redis.md)
 
 ---
 
