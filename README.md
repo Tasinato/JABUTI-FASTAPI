@@ -1,362 +1,76 @@
-# 🐢 JABUTI – FastAPI Backend
+# JABUTI FastAPI
 
-Backend desenvolvido com **FastAPI**, gerenciado com **Poetry** e containerizado com **Docker Compose**.  
-A aplicação segue arquitetura modular com separação clara de responsabilidades, preparada para ambientes escaláveis e produção.
+API didática de cadastro de usuários, desenvolvida por Rafael Tasinato para demonstrar FastAPI, persistência assíncrona, cache e conteinerização. Utiliza Python **3.12** no Docker; o projeto declara Python >=3.12,<4.0. As dependências resolvidas estão em `poetry.lock`.
 
----
+## O que está implementado
 
-## 🏗️ Arquitetura Geral (Host × Docker)
+- CRUD com UUID, paginação e ordenação; validação de nome, e-mail e idade.
+- SQLAlchemy assíncrono e PostgreSQL; migração inicial e reversão com Alembic.
+- Redis opcional para listas e registros; TTL configurável e invalidação após escritas.
+- Chave de API compartilhada para proteger todos os endpoints de usuários.
+- Health check de banco e cache; identificação de requisições e logs.
+- Testes automatizados e verificação de código no GitHub Actions.
 
-A aplicação é executada via Docker Compose, com separação entre:
+## Arquitetura atual
 
-- Cliente externo
-- Host (localhost)
-- Ambiente containerizado
-- Rede interna Docker
+`cliente → FastAPI/controller → SQLAlchemy/PostgreSQL e Redis`
 
-### 🔌 Mapeamento de Portas
+Os controllers coordenam as operações, consultas e cache. `schemas` valida entradas e respostas; `models` define tabela e sessão; `core` contém configuração, autenticação e middleware. **Não existem camadas Service e Repository**. Essa separação pode ser avaliada quando as regras de negócio crescerem.
 
-- Host → `8015`
-- FastAPI (container) → `8000`
-- PostgreSQL → `5432`
-- Redis → `6379`
+## Executar com Docker
 
-```mermaid
-flowchart LR
+Requisitos: Docker com Compose e Python para gerar uma chave (ou outro gerador seguro).
 
-    %% Cliente
-    Client[Cliente\nBrowser / Postman]
+1. Copie `.env.example` para `.env`.
+2. Substitua a senha de exemplo em `POSTGRES_PASSWORD` e na `DATABASE_URL`. Codifique caracteres especiais da senha na URL.
+3. Gere uma chave com `python -c "import secrets; print(secrets.token_urlsafe(32))"` e preencha `API_KEY` (mínimo de 32 caracteres). Não publique `.env`.
+4. Execute `docker compose up --build`.
 
-    %% Host
-    subgraph Host[Host - localhost]
-        Port[Port 8015]
-    end
+A API fica em http://127.0.0.1:8015; documentação em `/docs`. PostgreSQL e Redis ficam na rede interna, sem portas publicadas. A aplicação executa com usuário sem privilégios. O comando de inicialização aplica `alembic upgrade head` antes do Uvicorn.
 
-    %% Docker Environment
-    subgraph Docker[Docker Environment]
-        
-        subgraph Network[Docker Internal Network]
-            API[FastAPI Container\nUvicorn :8000]
-            DB[(PostgreSQL\n:5432)]
-            Redis[(Redis\n:6379)]
-        end
+No Swagger, clique em **Authorize** e informe a chave. Outros clientes devem enviar `X-API-Key: <sua-chave>`.
 
-    end
+## API
 
-    %% Fluxo
-    Client -->|HTTP :8015| Port
-    Port -->|8015:8000| API
-    API --> DB
-    API --> Redis
-```
+| Método | Rota | Comportamento |
+|---|---|---|
+| GET | `/usuarios/` | Lista; `limit` 1–100, `offset` >=0, `sort` nome/email/idade, com `-` para decrescente |
+| GET | `/usuarios/{id}` | Consulta por UUID |
+| POST | `/usuarios/` | Cria; retorna 201 |
+| PUT | `/usuarios/{id}` | Atualização parcial; campos omitidos são preservados |
+| DELETE | `/usuarios/{id}` | Exclui; retorna 204 |
+| GET | `/health` | Público; 200 com banco disponível, 503 sem banco |
 
----
+Corpo de criação: `{"nome":"Ana","email":"ana@example.com","idade":30}`.
+Nome: 1–100 caracteres após remover espaços nas extremidades; e-mail válido até 150 caracteres; idade inteira não negativa (sem conversão de texto ou booleano). Campos extras e valores nulos são rejeitados. Erros: 401 chave ausente/incorreta, 404 não encontrado, 409 e-mail duplicado, 422 validação; ordenação desconhecida retorna 400.
 
-## 🔄 Fluxo Interno da Aplicação
+## Desenvolvimento e testes
 
-A arquitetura segue o padrão Controller → SQLAlchemy ORM → Database, com camada opcional de cache.
-
-```mermaid
-sequenceDiagram
-  autonumber
-  participant Client
-  participant Controller
-  participant Redis
-  participant ORM
-  participant DB
-
-  Client->>Controller: HTTP Request
-
-  alt READ operation
-      Controller->>Redis: GET cache_key
-
-      alt Cache HIT
-          Redis-->>Controller: cached data
-      else Cache MISS
-          Controller->>ORM: Query
-          ORM->>DB: SQL read
-          DB-->>ORM: Result
-          ORM-->>Controller: Entities
-          Controller->>Redis: SET cache (TTL)
-      end
-
-  else WRITE operation
-      Controller->>ORM: Persist change
-      ORM->>DB: SQL write
-      DB-->>ORM: OK
-      Controller->>Redis: invalidate list cache
-      Controller->>Redis: update/delete id cache
-  end
-
-  Controller-->>Client: Response
-
-```
-
----
-
-## 📐 Estrutura do Projeto
-
-```text
-JABUTI-FASTAPI/
-│
-├── migrations/
-│   └── versions/
-│
-├── src/
-│   ├── main.py
-│   │
-│   ├── controllers/
-│   │   └── user_controller.py
-│   │
-│   ├── core/
-│   │   ├── settings.py
-│   │   ├── logging_config.py
-│   │   ├── middlewares.py
-│   │   └── request_context.py
-│   │
-│   ├── models/
-│   │   ├── database.py
-│   │   └── user_model.py
-│   │
-│   ├── schemas/
-│   │   └── user_schema.py
-│   │
-│   └── cache/
-│       └── redis_client.py
-│
-├── Dockerfile
-├── docker-compose.yml
-├── pyproject.toml
-├── poetry.lock
-├── .env.example
-└── .gitignore
-
-```
-
----
-
-## 🚀 Stack Tecnológica
-
-### Backend
-- Python 3.14
-- FastAPI
-- Uvicorn
-
-### Persistência
-- PostgreSQL
-- SQLAlchemy (async)
-- Alembic
-
-### Cache
-- Redis
-
-### Infraestrutura
-- Docker
-- Docker Compose
-
-### Gerenciamento de Dependências
-- Poetry
----
-
-## 🐳 Execução com Docker (Recomendado)
-
-```bash
-docker compose build
-docker compose up
-```
-
-Parar containers:
-
-```bash
-docker compose down
-```
-
-Aplicação disponível em:
-
-```
-http://localhost:8015
-```
-
-Documentação automática:
-
-- Swagger UI → http://localhost:8015/docs  
-- ReDoc → http://localhost:8015/redoc  
-
----
-
-## ⚙️ Execução Local com Poetry (Opcional)
-
-```bash
+```sh
 poetry install
-uvicorn src.main:app --reload --port 8015
+poetry run ruff check src migrations tests
+poetry run pytest -q
 ```
 
----
+Os testes usam SQLite temporário e simulam falhas do Redis; não precisam de serviços externos. Essa suíte não substitui testes de integração no PostgreSQL/Redis reais. A migração é exercitada com upgrade, comparação de metadados e downgrade.
 
-## 🔐 Configuração de Ambiente
+Para executar fora do Docker, configure `.env` com um PostgreSQL acessível pelo host (a configuração padrão usa o hostname interno `db`), ajuste Redis ou defina `CACHE_ENABLED=false`, e execute:
 
-Crie um arquivo `.env` baseado no modelo:
-
-```bash
-cp .env.example .env
+```sh
+poetry run alembic upgrade head
+poetry run uvicorn src.main:app --reload --port 8015
 ```
 
-Depois:
+## Migrações e bancos existentes
 
-```bash
-docker compose up --build
-```
+Em um banco novo, use `alembic upgrade head`. Para novas mudanças de modelo, gere uma revisão com `alembic revision --autogenerate -m "descricao"`, revise o SQL e teste a reversão antes de aplicar. `alembic downgrade base` remove a tabela e seus dados: use apenas em banco descartável.
 
-⚠️ O arquivo `.env` não deve ser versionado.
+Bancos criados pela versão antiga com `create_all` não têm histórico Alembic. Faça backup e compare o esquema com a revisão `0001` antes de adotar o histórico. **Somente se os esquemas forem equivalentes**, `alembic stamp 0001` registra a versão sem recriar tabelas; divergências exigem uma migração de transição. Não aplique stamp automaticamente.
 
----
-## 🧪 Como Testar o Cache (Redis)
+## Limites e próximos passos
 
-O projeto utiliza estratégia **Cache-Aside** com Redis.
+Este é um projeto de demonstração, **sem declaração de prontidão para produção**. A chave compartilhada não representa contas de usuários, autorização por perfil ou autenticação OAuth/OIDC. Antes de uma implantação pública, avaliar identidade e permissões, TLS, rotação e armazenamento de segredos, limites de requisição, backups e recuperação, observabilidade e testes com os serviços reais. Em múltiplas réplicas, executar migrações como etapa única de implantação.
 
-A chave utilizada para listagem segue o padrão:
+O cache é de melhor esforço: falhas e concorrência podem causar leituras temporariamente desatualizadas até o TTL. Se Redis falhar no início, o processo segue sem cache até reiniciar. Não há garantia de consistência forte, alta disponibilidade ou ganho de desempenho medido.
 
-```
-usuarios:list:{limit}:{offset}:{sort}
-```
-
-Exemplo real:
-
-```
-usuarios:list:10:0:nome
-```
-
-### 🔹 1️⃣ Limpar o Redis
-
-```bash
-docker compose exec cache redis-cli flushall
-```
-
----
-
-### 🔹 2️⃣ Monitorar comandos do Redis
-
-Abra um terminal separado:
-
-```bash
-docker compose exec cache redis-cli monitor
-```
-
----
-
-### 🔹 3️⃣ Fazer duas chamadas iguais na API
-
-```bash
-curl "http://localhost:8015/usuarios/?limit=10&offset=0&sort=nome"
-curl "http://localhost:8015/usuarios/?limit=10&offset=0&sort=nome"
-```
-
----
-
-### 🔎 Resultado esperado
-
-#### Primeira chamada (Cache MISS)
-
-```
-GET usuarios:list:10:0:nome
-SET usuarios:list:10:0:nome ... EX 60
-```
-
-Isso indica que:
-
-- Não havia cache
-- Dados foram buscados no banco
-- Resultado foi armazenado no Redis com TTL de 60 segundos
-
----
-
-#### Segunda chamada (Cache HIT)
-
-```
-GET usuarios:list:10:0:nome
-```
-
-Observe que **não aparece SET novamente**.
-
-Isso significa que a resposta foi servida diretamente do cache.
-
----
-
-### 🔹 4️⃣ Verificar chave manualmente
-
-Listar chaves:
-
-```bash
-docker compose exec cache redis-cli keys "usuarios:list:*"
-```
-
-Verificar TTL:
-
-```bash
-docker compose exec cache redis-cli ttl "usuarios:list:10:0:nome"
-```
-
-Obter valor armazenado:
-
-```bash
-docker compose exec cache redis-cli get "usuarios:list:10:0:nome"
-```
-
----
-
-## 🔁 Invalidação de Cache
-
-Após operações de escrita (POST, PUT, DELETE), o cache da listagem é invalidado automaticamente:
-
-```python
-await cache_delete_prefix("usuarios:list")
-```
-
-Isso garante consistência entre banco e cache.
-
----
-
-## ⏱ TTL Configurado
-
-O tempo de expiração padrão está definido como:
-
-```python
-CACHE_TTL = 60  # segundos
-```
-
-Após esse período, o cache expira automaticamente e a próxima requisição será um novo MISS.
----
-
-## 🏛️ Padrão Arquitetural
-
-- Separação por camadas (Controller → Service → Repository)
-- Organização modular
-- Containerização
-- Versionamento de banco com Alembic
-- Integração com Redis para cache
-- Estrutura preparada para evolução e escalabilidade
-
----
-
-## 📦 Objetivo
-
-Base profissional para backend com:
-
-- Organização enterprise-ready
-- Boas práticas de desenvolvimento
-- Arquitetura preparada para crescimento
-
----
-
-## 📚 Documentação Técnica
-
-A documentação completa do sistema está disponível em:
-
-👉 [docs/README.md](docs/README.md)
-
----
-
-## 👤 Autor
-
-**Rafael Tasinato**  
-AI & Software Engineer
+[Documentação complementar](docs/README.md).

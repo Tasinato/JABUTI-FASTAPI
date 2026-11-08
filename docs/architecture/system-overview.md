@@ -1,26 +1,7 @@
-# 🏛 Visão Geral do Sistema
+# Arquitetura
 
-O JABUTI FastAPI é um backend containerizado com:
+Cliente → controller FastAPI → SQLAlchemy/PostgreSQL e Redis opcional.
 
-- FastAPI
-- PostgreSQL
-- Redis
-- Docker Compose
+Controllers executam consultas, coordenam transações e cache. Schemas Pydantic validam dados; models definem tabela e sessão; core reúne configuração, chave de API, middleware e logs. Não há Service ou Repository. O Alembic controla a evolução do esquema; a aplicação não chama create_all na inicialização.
 
----
-
-## Componentes
-
-| Componente | Função |
-|---|---|
-| FastAPI | API REST |
-| PostgreSQL | Persistência |
-| Redis | Cache |
-| Docker | Isolamento |
-| Uvicorn | ASGI server |
-
----
-
-## Fluxo de Requisição
-
-Client → FastAPI → Cache → Database → Response
+Consulte o [README](../../README.md) para execução, limitações e decisões de segurança.
