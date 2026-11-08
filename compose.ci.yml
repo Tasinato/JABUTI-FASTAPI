@@ -1,0 +1,36 @@
+# Exclusivo para testes: credenciais públicas e descartáveis, nunca usar em produção.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: jabuti_ci
+      POSTGRES_PASSWORD: ci_only_disposable_password
+      POSTGRES_DB: jabuti_ci
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jabuti_ci -d jabuti_ci"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  cache:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://jabuti_ci:ci_only_disposable_password@db:5432/jabuti_ci
+      REDIS_URL: redis://cache:6379/0
+      API_KEY: ci-only-api-key-not-for-production-123456789
+      CACHE_ENABLED: "true"
+      CACHE_TTL: "5"
+      APP_DEBUG: "false"
+    ports:
+      - "127.0.0.1:18015:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy

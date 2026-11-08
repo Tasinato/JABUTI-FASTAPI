@@ -1,5 +1,7 @@
 name: Backend checks
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -11,5 +13,36 @@ jobs:
       - run: python -m pip install 'poetry>=2,<3'
       - run: poetry install --no-root
       - run: poetry check --lock
-      - run: poetry run ruff check src migrations tests
+      - run: poetry run ruff check src migrations tests integration
       - run: poetry run pytest -q
+
+  integration:
+    name: PostgreSQL + Redis integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build and start isolated stack
+        run: docker compose -p jabuti-ci -f compose.ci.yml up -d --build --wait --wait-timeout 180
+      - name: Test real API, PostgreSQL, Redis and cache outage
+        run: python integration/check_stack.py
+      - name: Test migration rollback and reapply on disposable database
+        run: |
+          docker compose -p jabuti-ci -f compose.ci.yml stop app
+          docker compose -p jabuti-ci -f compose.ci.yml run --rm --no-deps app sh -c 'alembic downgrade base && alembic upgrade head && alembic check'
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose -p jabuti-ci -f compose.ci.yml logs --no-color --tail 100
+      - name: Save integration results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-results
+          path: integration-results.json
+          if-no-files-found: ignore
+      - name: Remove disposable stack
+        if: always()
+        run: docker compose -p jabuti-ci -f compose.ci.yml down --volumes --remove-orphans

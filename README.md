@@ -1,5 +1,7 @@
 # JABUTI FastAPI
 
+[![Backend checks](https://github.com/Tasinato/JABUTI-FASTAPI/actions/workflows/tests.yml/badge.svg)](https://github.com/Tasinato/JABUTI-FASTAPI/actions/workflows/tests.yml)
+
 API didática de cadastro de usuários, desenvolvida por Rafael Tasinato para demonstrar FastAPI, persistência assíncrona, cache e conteinerização. Utiliza Python **3.12** no Docker; o projeto declara Python >=3.12,<4.0. As dependências resolvidas estão em `poetry.lock`.
 
 ## O que está implementado
@@ -52,7 +54,9 @@ poetry run ruff check src migrations tests
 poetry run pytest -q
 ```
 
-Os testes usam SQLite temporário e simulam falhas do Redis; não precisam de serviços externos. Essa suíte não substitui testes de integração no PostgreSQL/Redis reais. A migração é exercitada com upgrade, comparação de metadados e downgrade.
+Os testes em `tests/` usam SQLite temporário e simulam falhas do Redis; não precisam de serviços externos. Um segundo job do GitHub Actions constrói a imagem e executa `integration/check_stack.py` com PostgreSQL e Redis reais, incluindo interrupção do cache e reversão/reaplicação das migrações.
+
+A **integração contínua (CI)** roda automaticamente em cada push e Pull Request, e também pode ser iniciada manualmente na aba Actions. Os jobs verificam código, testes e integração antes da revisão. O workflow não publica imagens nem faz implantação automática. Veja [como executar e interpretar a CI](docs/development/continuous-integration.md).
 
 Para executar fora do Docker, configure `.env` com um PostgreSQL acessível pelo host (a configuração padrão usa o hostname interno `db`), ajuste Redis ou defina `CACHE_ENABLED=false`, e execute:
 
