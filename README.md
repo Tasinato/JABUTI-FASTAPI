@@ -73,4 +73,6 @@ Este é um projeto de demonstração, **sem declaração de prontidão para prod
 
 O cache é de melhor esforço: falhas e concorrência podem causar leituras temporariamente desatualizadas até o TTL. Se Redis falhar no início, o processo segue sem cache até reiniciar. Não há garantia de consistência forte, alta disponibilidade ou ganho de desempenho medido.
 
+[Validação local com PostgreSQL e Redis reais — 08/11/2026](docs/development/integration-validation.md).
+
 [Documentação complementar](docs/README.md).
