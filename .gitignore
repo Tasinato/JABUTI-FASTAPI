@@ -64,3 +64,5 @@ Thumbs.db
 # Arquivos antigos / backups locais (não devem ir para o repositório)
 *.old
 old*
+.ruff_cache/
+.test-*/

@@ -5,15 +5,23 @@ from sqlalchemy.exc import IntegrityError
 
 from uuid import UUID
 
-from src.schemas.user_schema import UserCreate, UserUpdate, UserResponse, UserListResponse 
+from src.schemas.user_schema import UserCreate, UserUpdate, UserResponse, UserListResponse
 from src.models.database import get_db
 from src.models.user_model import User
-from src.cache.redis_client import cache_get, cache_set, cache_delete, cache_delete_prefix,make_cache_key
+from src.core.security import require_api_key
+from src.core.settings import settings
+from src.cache.redis_client import (
+    cache_get,
+    cache_set,
+    cache_delete,
+    cache_delete_prefix,
+    make_cache_key,
+)
 
-router = APIRouter(prefix="/usuarios", tags=["Usuários"])
+router = APIRouter(prefix="/usuarios", tags=["Usuários"], dependencies=[Depends(require_api_key)])
 
 
-CACHE_TTL = 60
+CACHE_TTL = settings.CACHE_TTL
 
 
 @router.get("/", response_model=UserListResponse)
@@ -23,15 +31,6 @@ async def list_users(
     sort: str = Query("nome"),
     db: AsyncSession = Depends(get_db),
 ):
-    cache_key = make_cache_key("usuarios", "list", limit, offset, sort)
-    cached = await cache_get(cache_key)
-    if cached is not None:
-        return cached
-
-    # total_count
-    total_stmt = select(func.count()).select_from(User)
-    total_count = (await db.execute(total_stmt)).scalar_one()
-
     allowed_sort_fields = {
         "nome": User.nome,
         "email": User.email,
@@ -44,14 +43,18 @@ async def list_users(
     if field not in allowed_sort_fields:
         raise HTTPException(status_code=400, detail="Campo de ordenação inválido")
 
+    cache_key = make_cache_key("usuarios", "list", limit, offset, sort)
+    cached = await cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    # total_count
+    total_stmt = select(func.count()).select_from(User)
+    total_count = (await db.execute(total_stmt)).scalar_one()
+
     order_column = allowed_sort_fields[field].desc() if desc else allowed_sort_fields[field]
 
-    stmt = (
-        select(User)
-        .order_by(order_column)
-        .limit(limit)
-        .offset(offset)
-    )
+    stmt = select(User).order_by(order_column, User.id).limit(limit).offset(offset)
 
     users = (await db.execute(stmt)).scalars().all()
 
@@ -70,8 +73,6 @@ async def list_users(
     return data
 
 
-
-
 @router.get("/{id}", response_model=UserResponse)
 async def get_user(id: UUID, db: AsyncSession = Depends(get_db)):
     cache_key = make_cache_key("usuarios", "id", id)
@@ -85,20 +86,13 @@ async def get_user(id: UUID, db: AsyncSession = Depends(get_db)):
 
     data = UserResponse.model_validate(user).model_dump(mode="json")
     await cache_set(cache_key, data, ttl=CACHE_TTL)
-    
+
     return data
 
 
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def create_user(
-    payload: UserCreate,
-    db: AsyncSession = Depends(get_db)
-):
-    user = User(
-        nome=payload.nome,
-        email=payload.email,
-        idade=payload.idade
-    )
+async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
+    user = User(nome=payload.nome, email=payload.email, idade=payload.idade)
 
     db.add(user)
 
@@ -107,14 +101,11 @@ async def create_user(
         await db.refresh(user)
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="Email já cadastrado"
-        )
-    
+        raise HTTPException(status_code=409, detail="Email já cadastrado")
+
     await cache_delete_prefix("usuarios:list")
     # -> "usuarios:list:10:0:nome"
-    
+
     # grava usuário recém criado no cache (write-through)
     user_data = UserResponse.model_validate(user).model_dump(mode="json")
     cache_key = make_cache_key("usuarios", "id", user.id)
@@ -124,11 +115,7 @@ async def create_user(
 
 
 @router.put("/{id}", response_model=UserResponse)
-async def update_user(
-    id: UUID,
-    payload: UserUpdate,
-    db: AsyncSession = Depends(get_db)
-):
+async def update_user(id: UUID, payload: UserUpdate, db: AsyncSession = Depends(get_db)):
     user = await db.get(User, id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
@@ -137,16 +124,10 @@ async def update_user(
 
     # 🔎 valida email se estiver sendo alterado
     if "email" in update_data:
-        stmt = select(User).where(
-            User.email == update_data["email"],
-            User.id != id
-        )
+        stmt = select(User).where(User.email == update_data["email"], User.id != id)
         result = await db.execute(stmt)
         if result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=409,
-                detail="Email já cadastrado"
-            )
+            raise HTTPException(status_code=409, detail="Email já cadastrado")
 
     # ✏️ aplica alterações dinamicamente
     for field, value in update_data.items():
@@ -158,12 +139,8 @@ async def update_user(
         await db.refresh(user)
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="Email já cadastrado"
-        )
+        raise HTTPException(status_code=409, detail="Email já cadastrado")
 
-    
     await cache_delete_prefix("usuarios:list")
 
     # write-through: atualiza o cache do usuário com o dado já persistido
@@ -172,7 +149,6 @@ async def update_user(
     await cache_set(cache_key, user_data, ttl=CACHE_TTL)
 
     return user_data
-
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -186,5 +162,5 @@ async def delete_user(id: UUID, db: AsyncSession = Depends(get_db)):
 
     await cache_delete_prefix("usuarios:list")
     await cache_delete(make_cache_key("usuarios", "id", id))
-    
+
     return None

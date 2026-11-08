@@ -45,9 +45,6 @@ Este diretório contém toda a documentação técnica detalhada do sistema, org
 - Troubleshooting  
   → [Troubleshooting](./operations/troubleshooting.md)
 
-- Performance e tuning  
-  → [Performance Tuning](./operations/performance.md)
-
 ---
 
 ## 👨‍💻 Desenvolvimento

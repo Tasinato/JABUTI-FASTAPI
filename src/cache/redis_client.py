@@ -7,7 +7,7 @@ from src.core.settings import settings
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TTL = 60
+DEFAULT_TTL = settings.CACHE_TTL
 
 redis: Redis | None = None
 CACHE_ENABLED = False
@@ -20,15 +20,29 @@ def make_cache_key(prefix: str, *parts) -> str:
 async def init_cache() -> None:
     global redis, CACHE_ENABLED
 
+    await close_cache()
+    if not settings.CACHE_ENABLED:
+        return
     try:
-        redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
+        redis = Redis.from_url(
+            settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2, socket_timeout=2
+        )
         await redis.ping()
         CACHE_ENABLED = True
         logger.info("Redis conectado: cache habilitado")
-    except Exception as e:
-        redis = None
-        CACHE_ENABLED = False
-        logger.warning("Redis indisponível: cache desabilitado (%s)", e)
+    except RedisError:
+        await close_cache()
+        logger.warning("Redis indisponível: cache desabilitado")
+
+
+async def close_cache() -> None:
+    global redis, CACHE_ENABLED
+    client, redis, CACHE_ENABLED = redis, None, False
+    if client is not None:
+        try:
+            await client.aclose()
+        except RedisError:
+            logger.warning("Falha ao encerrar conexão Redis")
 
 
 async def cache_get(key: str):
